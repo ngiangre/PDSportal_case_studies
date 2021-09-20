@@ -1,0 +1,2851 @@
+---
+title: 'Pediatric ADE Ontogeny Cases'
+author: "Nick Giangreco"
+date: "7/6/2021"
+output: 
+    html_document:
+        toc: yes
+        toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,dpi=300,warning = F)
+library(RSQLite)
+library(tidyverse)
+library(data.table)
+
+theme_set(theme_bw(base_size=16) + theme(text=element_text(face="bold")))
+
+stages <- 
+  c("term_neonatal","infancy",
+    "toddler","early_childhood",
+    "middle_childhood","early_adolescence",
+    "late_adolescence")
+
+img_dir="../docs/imgs/"
+data_dir <- "../data/"
+basename="database_investigations_"
+```
+
+# Pediatric ADE Database Connection
+
+```{r db_connection}
+
+db <- 
+    dbConnect(
+        SQLite(), 
+        "../data/effect_peds_19q2_v0.2_20210920.sqlite"
+        )
+
+dbListTables(db)
+
+```
+
+# Functions
+
+```{r}
+
+ade_cohort <- function(drugs=c(),events=c(),database=db){
+  
+  if(length(events)==0 | length(drugs)==0){errorCondition("no drugs or events given")}
+  
+  tmp <- 
+  expand.grid(
+    atc_concept_id = drugs,
+    meddra_concept_id = events
+    ) %>% 
+    merge(
+        tbl(db,"ade_nichd") %>% 
+          filter(
+            atc_concept_id %in% drugs & 
+              meddra_concept_id %in% events) %>% 
+          collect() %>% data.table(),
+        by=c("atc_concept_id","meddra_concept_id")
+    ) %>% 
+    data.table() %>% 
+    merge(
+      tbl(db,"ade") %>% 
+          filter(
+            atc_concept_id %in% drugs & 
+              meddra_concept_id %in% events) %>% 
+          collect() %>% data.table(),
+      by=c("ade","atc_concept_id","meddra_concept_id")
+    ) %>% 
+    merge(
+      tbl(db,"event") %>% 
+          filter(
+            meddra_concept_id %in% events
+            ) %>% 
+        select(meddra_concept_id,meddra_concept_name_1) %>% 
+        rename(meddra_concept_name = meddra_concept_name_1) %>% 
+          collect() %>% data.table() %>% na.omit() %>% unique(),
+      by=c("meddra_concept_id")
+    ) %>% 
+    merge(
+      tbl(db,"drug") %>% 
+          filter(
+            atc_concept_id %in% drugs
+            ) %>% 
+        select(atc_concept_id,atc_concept_name) %>% 
+          collect() %>% data.table() %>% na.omit() %>% unique(),
+      by=c("atc_concept_id")
+    )
+  
+  tmp$significance <- 
+    ifelse(tmp$gt_null_statistic==1,"Nominal","NA")
+  tmp[gt_null_99==1,"significance"]="Null model"
+  
+  tmp
+  
+}
+
+coreported_drugs <- function(events=c()){
+  
+  tbl(db,"ade_nichd") %>% 
+    filter(meddra_concept_id %in% events) %>% 
+    distinct(atc_concept_id) %>% 
+    collect() %>% 
+    unlist %>% unname
+  
+}
+```
+
+# Case outline
+## Background
+### Clinical Manifestation
+### Biological mechcanism
+### Developmental mechanism
+## What drugs and events would comprise of the ADE
+# Case #1: Drug-induced Serotonin Syndrome
+
+## Background
+
+### Clinical and manifestation
+
+- Symptoms resulting from increased serotonin transmission (http://doi.wiley.com/10.1111/cts.12543)
+   - agitations
+   - hallucinations
+   - hyperthermia
+   - tachycardia
+   - muscle twitching
+- Case in adolescents on serotonergic medications (https://journals.lww.com/10.1097/WNF.0000000000000375)
+- Likely to promote discontinuation of prescriptions (http://dx.doi.org/10.1016/j.cppeds.2017.12.001)
+- Often for being treated for ADHD which has a prevalence between 6 and 8 percent (http://pediatrics.aappublications.org/lookup/doi/10.1542/peds.2014-3482)
+- ADHD extends into adulthood (https://www.cambridge.org/core/journals/psychological-medicine/article/abs/agedependent-decline-of-attention-deficit-hyperactivity-disorder-a-metaanalysis-of-followup-studies/C1CEFA44EB29A76A5E441F60F5051E13)
+- ADHD pathophysiology is linked to dysfunction of serotonin (5-HT) (https://doi.org/10.1016/j.neubiorev.2018.02.001)
+- Drugs treating ADHD had a higher ADR incidence rate in children than adults from FDA data (https://doi.org/10.1016/j.jpeds.2018.12.033)
+
+### Biological mechanism
+
+- ADHD has a prevalence between 6 and 8 percent (http://pediatrics.aappublications.org/lookup/doi/10.1542/peds.2014-3482)
+- ADHD extends into adulthood (https://www.cambridge.org/core/journals/psychological-medicine/article/abs/agedependent-decline-of-attention-deficit-hyperactivity-disorder-a-metaanalysis-of-followup-studies/C1CEFA44EB29A76A5E441F60F5051E13)
+- ADHD pathophysiology is linked to dysfunction of serotonin (5-HT) (https://doi.org/10.1016/j.neubiorev.2018.02.001)
+- Stimulants are the first-line medications for ADHD and antidepressants are linked to serotonin syndrome (Canadian ADHD Practice Guidelines) 
+- "It should also be noted that the use of stimulants as augmentation
+agents in combination with tricyclic antidepressants and MAO in- hibitors is controversial, with issues concerning the possible develop- ment of an adrenergic crisis, the emergence of serotonin syndrome, or a hypertensive crisis being raised" (https://doi.org/10.1016/j.neubiorev.2018.02.001)
+- Combination of psychostimulants with tricyclics and monoamine oxidase inhibitors have been linked to mild to moderate symptoms of adrenergic crisis or serotonin syndrome. (https://pubmed.ncbi.nlm.nih.gov/22034135/)
+- 5-HT is noted to evaluate for off-target activity in safety preclinical studies (Principles of Safety Pharmacology)
+
+### Development mechanism
+
+- 5-HT distributes early on during neurodevelopment, and 5-HT1A isoform is found in thhe cerebellum only in pre-adult rats (https://linkinghub.elsevier.com/retrieve/pii/S0169328X98001491)
+- The safety profile of these medications for serotonin syndrome has been investigated in the population (http://doi.wiley.com/10.1111/cts.12543), but the potential mechanisms and ontogeny across childhood has not. 
+
+## What drugs and events would comprise of the ADE
+
+### Serotonin Syndrome events
+
+```{r}
+
+tbl(db,"event") %>% 
+    filter(meddra_concept_name_1=="Serotonin syndrome") %>% 
+  distinct(meddra_concept_name_1,neventreports)
+
+ss_id <- 
+tbl(db,"event") %>% 
+    filter(meddra_concept_name_1=="Serotonin syndrome") %>% 
+    distinct(meddra_concept_id) %>% 
+    collect() %>% 
+    unlist %>% unname
+
+ss_id
+
+
+```
+
+### Drugs reported with Serotonin Syndrome
+
+```{r}
+
+ss_drug_ids <- 
+tbl(db,"ade_nichd") %>% 
+    filter(meddra_concept_id %in% ss_id) %>% 
+    distinct(atc_concept_id) %>% 
+    collect() %>% 
+    unlist %>% unname
+
+length(ss_drug_ids)
+
+tbl(db,"drug") %>% 
+    filter(atc_concept_id %in% ss_drug_ids) %>% 
+    arrange(desc(ndrugreports)) %>% 
+    collect() %>% 
+    na.omit()
+
+```
+
+### Drug-Serotonin syndrome risk estimates 
+
+```{r}
+
+drug_ss_data <- 
+expand.grid(
+    atc_concept_id = ss_drug_ids,
+    meddra_concept_id = ss_id
+    ) %>% 
+    inner_join(
+        tbl(db,"ade_nichd") %>% 
+            filter(
+                atc_concept_id %in% ss_drug_ids & 
+                    meddra_concept_id %in% ss_id) %>% 
+            collect(),
+        by=c("atc_concept_id","meddra_concept_id")
+    )
+
+dim(drug_ss_data)
+head(drug_ss_data)
+
+drug_ss_ades <- unique(drug_ss_data$ade)
+
+length(drug_ss_ades)
+```
+
+## What does the reporting and estimated risk(s) of the ADE look like across development stages?
+
+### Drug and Serotonin syndrome reporting overall
+
+```{r,fig.dim=c(8,7)}
+
+ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+    rename(
+        `drug-event` = DE,
+        event = E,
+        drug = D
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade","nichd"),measure.vars=c("drug-event","event","drug")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,group=nichd)) +
+    geom_boxplot(outlier.shape = NA) +
+    geom_jitter(aes(fill=variable),color="black",pch=21) +
+    guides(fill=guide_legend(title="Report type")) +
+    facet_grid(variable~.,scales="free_y") +
+    xlab("") +
+    ylab("Number of reports") +
+    scale_y_continuous(trans="log10") +
+    theme(
+      strip.background = element_blank(),
+      axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+
+```
+
+### ADE reporting across stages
+
+```{r,fig.dim=c(8,5)}
+
+g <- ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade","nichd"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,color=variable,group=ade)) +
+    geom_line() +
+    guides(color=guide_legend(title="Report type")) +
+    xlab("") +
+    ylab("Number of reports") +
+    theme(
+      legend.position = "none",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_reporting_across_stages.png"),width=5,height=4)
+
+
+
+```
+
+## Is the ADE risk more often found i.e. enriched at a stage?
+
+### How many ADEs are significant nominally and by the null model?
+
+```{r}
+
+tmp = ade_cohort(drugs=ss_drug_ids,events=ss_id)
+
+tmp %>% 
+  .[,.(N = length(unique(ade)),
+       frac = length(unique(ade))/tmp[,length(unique(ade))]),
+    significance]
+
+```
+
+### Where are ADE risk estimates significant?
+
+```{r,fig.dim=c(15,10)}
+
+g <- ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+  .[significance=="Null model"] %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~atc_concept_name,labeller = label_wrap_gen(width = 20),scales="free_y",ncol=3) +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_significant_drugevents.png"),width=12,height=10)
+
+```
+
+
+## Are Serotonin syndrome drug risks more often significant at a stage, compared to nonsignificant and not at that stage?
+
+```{r}
+
+totalades <- 
+tbl(
+  db,
+  sql("
+      select distinct ade
+      from ade_nichd
+      ")
+  ) %>% collect() %>% unlist %>% unname
+
+sig_null_dts <- 
+tbl(
+  db,
+  sql("
+      select ade,ade_nichd.nichd as nichd
+      from ade_nichd
+      inner join
+      ade_null
+      on ade_nichd.nichd=ade_null.nichd
+      where gam_score_90mse>null_99
+      ")
+  ) %>% collect() %>% data.table()
+```
+
+```{r}
+
+catades <- 
+  ade_cohort(drugs=ss_drug_ids,events=ss_id)[,unique(ade)]
+
+test_dts <- NULL
+for(st in stages){
+  
+  stagesigades <- 
+  sig_null_dts[
+      nichd==st,
+      unique(ade)]
+  
+  a <- intersect(stagesigades,catades) %>% length()
+  b <- setdiff(stagesigades,catades) %>% length()
+  c <- setdiff(catades,stagesigades) %>% length()
+  d <- setdiff(totalades,c(catades,stagesigades)) %>% 
+          length()
+  mat <- matrix(c(a,b,c,d),nrow = 2,byrow = T)
+  test <- fisher.test(mat,conf.level=0.95)
+
+  test_dts <- 
+    bind_rows(
+      test_dts,
+      data.table(
+        nichd = st,
+        a=a,
+        b=b,
+        c=c,
+        d=d,
+        lwr=test$conf.int[1],
+        odds=test$estimate,
+        upr=test$conf.int[2],
+        pvalue=test$p.value
+    )
+  )
+  
+  
+}
+
+```
+
+```{r,fig.dim=c(8,6)}
+
+test_dts
+
+g <- test_dts %>% 
+  ggplot(aes(forcats::fct_relevel(nichd,stages),odds)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  geom_hline(yintercept = 1,color="red",linetype="dashed") +
+  scale_y_continuous(trans="log10") +
+  xlab("") +
+  ylab("Development stage\nodds enrichment") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_stage_enrichment.png"),width=5,height=4)
+
+```
+
+## What are the dynamics of the estimated risk (does the risk increase/decrease/etc. across stages?)
+### What are the stages with the maximum risk?
+
+```{r,fig.dim=c(8,7)}
+
+ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+  ggplot(aes(forcats::fct_relevel(max_score_nichd,stages),fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  xlab("") +
+  ylab("Percent of serotonin syndrome drug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+
+```
+
+### What are the dynamic clusters that all and significant ADEs are assigned?
+
+```{r,fig.dim=c(8,7)}
+
+g <- ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+  ggplot(aes(cluster_name,fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  guides(fill=guide_legend(title="Signifiance")) +
+  xlab("") +
+  ylab("Percent of\ndrug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_cluster_percentage.png"),width=5,height=3)
+```
+
+## What are the drugs in the enriched stage(s)?
+
+```{r}
+
+tmp <- 
+ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+      .[ade %in% drug_ss_ades & max_score_nichd=="middle_childhood",unique(atc_concept_id)]
+
+tbl(db,"drug") %>% 
+  filter(atc_concept_id %in% tmp) %>% 
+  collect()
+
+```
+
+
+## Is there molecular information online, e.g. on drugbank, about how the drug may be the culprit for the adverse event?
+
+```{r,fig.dim=c(12,8)}
+
+tbl(db,"drug_gene") %>% 
+  filter(atc_concept_id %in% ss_drug_ids) %>% 
+  group_by(type,action) %>% 
+  summarize(N = n(),.groups = "keep") %>% 
+  ggplot(aes(type,fill=action)) +
+  geom_bar(position="fill") +
+  xlab("") +
+  ylab("Percent of Serotonin syndrome risk drugs") +
+  colorspace::scale_fill_discrete_qualitative(palette="Dynamic") +
+  guides(fill=guide_legend(title="Drug action on gene",title.position="top",ncol=5)) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x=element_text(angle=45,vjust=1,hjust=1)
+  )
+  
+```
+
+## Drug-gene summary
+
+```{r,fig.dim=c(7,25)}
+
+
+tmp <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% 
+      ss_drug_ids
+    ) %>% 
+  select(type,action,gene_symbol,atc_concept_id) %>% 
+  collect() %>% 
+  data.table() %>% 
+  merge(
+    ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+      .[,.(atc_concept_id,ade,ade_name,
+           significance,cluster_name)] %>% 
+      unique(),
+    by="atc_concept_id",
+    allow.cartesian=T
+  ) %>% 
+  .[,.(type,action,gene_symbol,ade,
+       significance,cluster_name,ade_name,atc_concept_id)] %>% 
+  unique() 
+
+
+tmp %>% 
+  .[grepl("MAO",gene_symbol),length(unique(atc_concept_id))]
+
+tmp %>%
+  .[significance=="Null model",
+    .(N = length(unique(gene_symbol))),.(type,action)] %>% .[order(N,decreasing = T)]
+
+g <- tmp %>%
+    .[significance=="Null model",
+      .(drug = sapply(str_split(ade_name," and "),function(x){x[1]}),
+        gene_symbol,action)] %>% 
+  unique() %>% 
+  ggplot(aes(gene_symbol,drug,fill=action)) +
+  geom_tile() +
+  xlab("") +
+  ylab("") +
+  guides(fill=guide_legend(title="Drug action")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_gene_drug_action_tiles.png"),g,width=18,height=5)
+
+```
+
+## Do gene expression dynamics associate with substrate risk dynamics across child development stages?
+
+```{r}
+
+resid_value_gene_dt <- 
+  fread(
+    paste0(
+      data_dir,
+      "database_generation_gene_expression_evaluation_stage_association_to_residuals_samples_significance.csv"
+      )
+    )
+
+all_drug_genes <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% ss_drug_ids & 
+      action=="substrate"
+    ) %>% 
+  distinct(atc_concept_id,gene_symbol,type) %>% 
+  collect() %>% 
+  data.table()
+
+gene_type <- 
+  all_drug_genes[gene_symbol %in% resid_value_gene_dt$gene,.(gene_symbol,type)] %>% unique()
+
+dts_sub <- 
+  ade_cohort(drugs=ss_drug_ids,events=ss_id) %>% 
+      .[significance=="Null model"]
+
+iter <- 
+  merge(
+    resid_value_gene_dt,
+    all_drug_genes,
+    by.x=c("gene"),
+    by.y=c("gene_symbol"),
+    allow.cartesian = T
+  ) %>% 
+  merge(
+    dts_sub,
+    by=c("atc_concept_id","nichd"),
+    allow.cartesian=T
+  ) %>% 
+  .[,.(ade,nichd,atc_concept_id,meddra_concept_id,gam_score,gam_score_se,
+       gene,type,sample,residual,probe)]
+
+gene_type <- 
+  iter[,.(gene,type)] %>% unique()
+
+
+iter
+```
+
+```{r}
+
+library(doParallel)
+registerDoParallel(cores=4)
+
+Nsamp = 100
+zs = rnorm(Nsamp)
+all_gene_dt <- NULL
+all_full_gene_dt <- NULL
+all_gsubs <- NULL
+all_overall_risks_comparisons <- NULL
+system.time({
+  for(i in 1:nrow(gene_type)){
+
+    gene_=gene_type[i,gene]
+    type_=gene_type[i,type]
+    cat("\nIteration",i,":",gene_,type_,"influencing drug risks\n")
+    
+    probes <- resid_value_gene_dt[gene==gene_ & fdr<0.1,unique(probe)]
+    if(length(probes)==0)next
+    
+    gsub_obs <- resid_value_gene_dt[probe %in% probes & gene==gene_]
+    all_gsubs <- 
+      bind_rows(
+        all_gsubs,
+        gsub_obs
+      )
+    
+    substrates <- 
+      iter[
+        gene==gene_ &
+          type==type_,
+        unique(ade)
+      ]
+    
+    if(length(substrates)<2)next
+    
+    nonsubstrates <- 
+      setdiff(
+        iter[
+          gene!=gene_,
+          unique(ade)
+        ],
+        substrates
+      )
+    
+    if(length(nonsubstrates)<2)next
+    
+    substrate_risks <- 
+      dts_sub[
+        ade %in% substrates
+      ]
+    substrate_risks$substrate_type <- "substrate drug-events"
+    nonsubstrate_risks <- 
+      dts_sub[
+        ade %in% nonsubstrates
+      ]
+    nonsubstrate_risks$substrate_type <- "nonsubstrate drug-events"
+    overall_risks_comparison <- bind_rows(substrate_risks,nonsubstrate_risks)
+    overall_risks_comparison$gene <- gene_
+    overall_risks_comparison$type <- type_
+    all_overall_risks_comparisons <- 
+      bind_rows(
+        all_overall_risks_comparisons,
+        overall_risks_comparison
+      )
+    
+    substrate_drugs <- 
+      sapply(substrates,function(x){str_split(x,"_")[[1]][1]}) %>% unique()
+    nonsubstrate_drugs <- 
+      sapply(nonsubstrates,function(x){str_split(x,"_")[[1]][1]}) %>% unique()  
+    
+    expand.grid(ade = substrates,probe=probes) %>% data.table() %>% nrow() %>% cat("\n\t\t",.)
+    expand.grid(ade = nonsubstrates,probe=probes) %>% data.table() %>% nrow() %>% cat("\n\t\t",.)
+    
+    gene_dt <- 
+      foreach(boot_=1:length(zs),.combine = "rbind",.errorhandling = "remove") %dopar% {
+        z_ = zs[boot_]
+        tmp <- data.table()
+        
+        grid <-
+          bind_rows(
+            expand.grid(ade = substrates,probe=probes,substrate="substrate") %>% data.table(),
+            expand.grid(ade = nonsubstrates,probe=probes,substrate="nonsubstrate") %>% data.table()
+          )
+        
+        tmp <- 
+          lapply(1:nrow(grid),function(i){
+            ade_ <- grid[i,ade]
+            probe_ <- grid[i,probe]
+            stype_ <- grid[i,substrate]
+            mi_ <- 
+              merge(
+                dts_sub[ade==ade_,.(ade,nichd,score = (z_*gam_score_se)+gam_score)] %>% unique(),
+                gsub_obs[probe==probe_,.(m = mean(residual)),nichd],
+                by="nichd"
+              ) %>% .[,maigesPack::MI(m,score)]
+            cor_ <- 
+              merge(
+                dts_sub[ade==ade_,.(ade,nichd,score = (z_*gam_score_se)+gam_score)] %>% unique(),
+                gsub_obs[probe==probe_,.(m = mean(residual)),nichd],
+                by="nichd"
+              ) %>% .[,cor(m,score,method="spearman")]
+            data.table(ade = ade_,probe = probe_,mi=mi_,cor=cor_,substrate=stype_)
+          }) %>% bind_rows()
+        
+        tmp$gene = gene_
+        tmp$type = type_
+        tmp$z = z_
+        tmp$boot=boot_
+        
+        tmp
+        
+      }    
+    
+    smi = gene_dt[substrate=="substrate",mean(mi),.(ade,probe)][,`V1`]
+    nsmi = gene_dt[substrate=="nonsubstrate",mean(mi),.(ade,probe)][,`V1`]
+    denom = (length(smi)*length(nsmi))
+    
+    wtest <- 
+      wilcox.test(smi,nsmi,alternative="g")
+    
+    smi = gene_dt[substrate=="substrate"][,mi]
+    nsmi = gene_dt[substrate=="nonsubstrate"][,mi]
+    ttest <- 
+      t.test(smi,nsmi,alternative="g")
+    
+    all_gene_dt <- 
+      bind_rows(
+        all_gene_dt,
+        gene_dt[,
+                .(
+                  gene = gene_,
+                  type = type_,
+                  auroc = 
+                    (wtest$statistic/
+                       denom),
+                  wt_pvalue = 
+                    wtest$p.value,
+                  ttest_statistic = 
+                    ttest$statistic,
+                  ttest_pvalue = 
+                    ttest$p.value
+                )
+        ]
+      )
+    
+    
+    all_full_gene_dt <- 
+      bind_rows(
+        all_full_gene_dt,
+        gene_dt
+      )
+    
+  }
+})
+
+all_gene_dt$fdr <- p.adjust(all_gene_dt$ttest_pvalue,method="fdr")
+
+```
+
+```{r}
+
+gdata_stages <- stages[2:6]
+
+all_gene_dt
+
+all_overall_risks_comparisons[substrate_type=="substrate drug-events","substrate_type"] <- "substrate"
+all_overall_risks_comparisons[substrate_type=="nonsubstrate drug-events","substrate_type"] <- "nonsubstrate"
+
+g <- all_overall_risks_comparisons[
+  nichd %in% gdata_stages & substrate_type=="substrate"
+] %>% 
+  merge(
+    all_gene_dt %>% 
+      .[fdr<0.01],
+    by=c("gene","type")
+  ) %>% 
+  .[,.(lwr = mean(gam_score) - sd(gam_score),
+       avg = mean(gam_score),
+       upr = mean(gam_score) + sd(gam_score)),
+    .(nichd,substrate_type,gene)
+  ] %>% 
+  ggplot(aes(factor(nichd,levels=stages),
+           avg,group=gene)) +
+  geom_line(size=1) +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  xlab("") +
+  ylab("GAM risk") +
+  facet_wrap(~gene,scales="free_y",ncol=4) +
+  theme(
+    strip.background = element_blank(),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_substrate_risk.png"),width=5,height=4)
+
+g <- all_gsubs[
+  fdr<0.1,
+  .(sample,probe,gene,nichd,residual)
+] %>% 
+  merge(
+    all_gene_dt %>% 
+      .[order(ttest_pvalue)] %>% 
+      .[fdr<0.01,.SD[1],gene],
+    by="gene"
+  ) %>% 
+  .[,
+    .(avg = mean(residual)),
+    .(nichd,probe,gene)
+  ] %>% 
+  .[nichd!=""] %>% 
+  ggplot(aes(factor(nichd,levels=stages[2:6]),avg,group=probe)) +
+  geom_point() +
+  geom_line() +
+  xlab("") +
+  ylab("Probe residual\nexpression") +
+  facet_wrap(~gene,scales="free_y") +
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_ss_expression_dynamics.png"),width=5,height=4)
+
+all_overall_risks_comparisons[grepl("^substrate",substrate_type),unique(ade_name)]
+
+```
+
+# Case #2: Lamotragine-induced SJS/TEN
+## What drugs and events would comprise of the ADE
+
+### Lamotrogine
+
+```{r}
+
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(str_detect(atc_concept_name,"lamo"))
+
+lamo_id <- 
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(str_detect(atc_concept_name,"lamo")) %>% 
+  distinct(atc_concept_id) %>% 
+  unlist %>% unname
+
+```
+
+### SJS/TEN
+
+```{r}
+
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    str_detect(meddra_concept_name_1,"Stevens") | 
+      str_detect(meddra_concept_name_1,"Toxic epi")
+    )
+
+
+sjs_ten_ids <- 
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    str_detect(meddra_concept_name_1,"Stevens") | 
+      str_detect(meddra_concept_name_1,"Toxic epi")
+    ) %>% 
+  collect() %>% 
+  distinct(meddra_concept_id) %>% 
+  unlist %>% unname
+
+```
+
+### Drugs reported with SJS/TEN
+
+```{r}
+
+sjs_ten_drug_ids <- 
+tbl(db,"ade_nichd") %>% 
+    filter(meddra_concept_id %in% sjs_ten_ids) %>% 
+    distinct(atc_concept_id) %>% 
+    collect() %>% 
+    unlist %>% unname
+
+length(sjs_ten_drug_ids)
+
+```
+
+## ADE reporting across stages
+
+```{r,fig.dim=c(8,5)}
+
+g <- ade_cohort(drugs=sjs_ten_drug_ids,events = sjs_ten_ids) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade","nichd","meddra_concept_name"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,color=meddra_concept_name,group=ade)) +
+    geom_line() +
+    guides(color=guide_legend(title="")) +
+    xlab("") +
+    ylab("Number of reports") +
+    theme(
+      legend.position = "bottom",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_reporting_across_stages.png"),width=5,height=5)
+
+
+
+```
+
+## How many ADEs are significant nominally and by the null model?
+
+Lamotrigine is nominally associated but not by the null model. 
+
+```{r}
+
+ade_cohort(drugs=sjs_ten_drug_ids,events = sjs_ten_ids) %>% 
+  .[,length(unique(atc_concept_id)),.(significance,meddra_concept_name)]
+
+```
+
+## Where are ADE risk estimates significant?
+
+```{r,fig.dim=c(15,10)}
+
+g <- ade_cohort(drugs=lamo_id,events = sjs_ten_ids) %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 20),scales="free_y",ncol=3) +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"lamoinduced_sjs_ten_significant_drugevents.png"),width=12,height=6)
+
+g <- ade_cohort(drugs=sjs_ten_drug_ids,events = sjs_ten_ids) %>% 
+  .[significance=="Null model"] %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 20),scales="free_y",ncol=3) +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_significant_drugevents.png"),width=12,height=8)
+
+```
+
+## What are the dynamics of the estimated risk (does the risk increase/decrease/etc. across stages?)
+
+### What are the dynamic clusters that all and significant ADEs are assigned?
+
+```{r,fig.dim=c(8,7)}
+
+g <- ade_cohort(drugs=sjs_ten_drug_ids,events=sjs_ten_ids) %>% 
+  ggplot(aes(cluster_name,fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  guides(fill=guide_legend(title="Signifiance")) +
+  xlab("") +
+  ylab("Percent of\ndrug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_cluster_percentage.png"),width=5,height=3)
+```
+
+## Are SJS-TEN drug risks more often significant at a stage, compared to nonsignificant and not at that stage?
+
+```{r}
+
+totalades <- 
+tbl(
+  db,
+  sql("
+      select distinct ade
+      from ade_nichd
+      ")
+  ) %>% collect() %>% unlist %>% unname
+
+sig_null_dts <- 
+tbl(
+  db,
+  sql("
+      select ade,ade_nichd.nichd as nichd
+      from ade_nichd
+      inner join
+      ade_null
+      on ade_nichd.nichd=ade_null.nichd
+      where gam_score_90mse>null_99
+      ")
+  ) %>% collect() %>% data.table()
+```
+
+```{r}
+
+catades <- 
+  unique(ade_cohort(drugs=sjs_ten_drug_ids,events=sjs_ten_ids)$ade)
+
+test_dts <- NULL
+for(st in stages){
+  
+  stagesigades <- 
+  sig_null_dts[
+      nichd==st,
+      unique(ade)]
+  
+  a <- intersect(stagesigades,catades) %>% length()
+  b <- setdiff(stagesigades,catades) %>% length()
+  c <- setdiff(catades,stagesigades) %>% length()
+  d <- setdiff(totalades,c(catades,stagesigades)) %>% 
+          length()
+  mat <- matrix(c(a,b,c,d),nrow = 2,byrow = T)
+  test <- fisher.test(mat,conf.level=0.95)
+
+  test_dts <- 
+    bind_rows(
+      test_dts,
+      data.table(
+        nichd = st,
+        a=a,
+        b=b,
+        c=c,
+        d=d,
+        lwr=test$conf.int[1],
+        odds=test$estimate,
+        upr=test$conf.int[2],
+        pvalue=test$p.value
+    )
+  )
+  
+  
+}
+
+```
+
+```{r,fig.dim=c(8,6)}
+
+test_dts
+
+g <- test_dts %>% 
+  ggplot(aes(forcats::fct_relevel(nichd,stages),odds)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  geom_hline(yintercept = 1,color="red",linetype="dashed") +
+  scale_y_continuous(trans="log10") +
+  xlab("") +
+  ylab("Development stage\nodds enrichment") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_stage_enrichment.png"),width=5,height=4)
+
+```
+
+## Drug-gene summary
+
+```{r,fig.dim=c(7,25)}
+
+
+tmp <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% 
+      sjs_ten_drug_ids
+    ) %>% 
+  select(type,action,gene_symbol,atc_concept_id) %>% 
+  collect() %>% 
+  data.table() %>% 
+  merge(
+    ade_cohort(drugs=sjs_ten_drug_ids,events=sjs_ten_ids) %>% 
+      .[,.(atc_concept_id,ade,ade_name,
+           significance,cluster_name)] %>% 
+      unique(),
+    by="atc_concept_id",
+    allow.cartesian=T
+  ) %>% 
+  .[,.(type,action,gene_symbol,ade,
+       significance,cluster_name,ade_name,atc_concept_id)] %>% 
+  unique() 
+
+tmp %>%
+  .[significance=="Null model",
+    .(N = length(unique(gene_symbol))),.(type,action)] %>% .[order(N,decreasing = T)]
+
+g <- tmp %>%
+    .[significance=="Null model",
+      .(drug = sapply(str_split(ade_name," and "),function(x){x[1]}),
+        gene_symbol,action)] %>% 
+  unique() %>% 
+  ggplot(aes(gene_symbol,drug,fill=action)) +
+  geom_tile() +
+  xlab("") +
+  ylab("") +
+  guides(fill=guide_legend(title="Drug action")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_gene_drug_action_tiles.png"),g,width=18,height=5)
+
+```
+
+## Do gene expression dynamics associate with substrate risk dynamics across child development stages?
+
+```{r}
+
+resid_value_gene_dt <- 
+  fread(
+    paste0(
+      data_dir,
+      "database_generation_gene_expression_evaluation_stage_association_to_residuals_samples_significance.csv"
+      )
+    )
+
+all_drug_genes <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% sjs_ten_drug_ids & 
+      action=="substrate"
+    ) %>% 
+  distinct(atc_concept_id,gene_symbol,type) %>% 
+  collect() %>% 
+  data.table()
+
+gene_type <- 
+  all_drug_genes[gene_symbol %in% resid_value_gene_dt$gene,.(gene_symbol,type)] %>% unique()
+
+dts_sub <- 
+  ade_cohort(drugs=sjs_ten_drug_ids,events=sjs_ten_ids) %>% 
+      data.table() %>% 
+      .[significance=="Null model"]
+
+iter <- 
+  merge(
+    resid_value_gene_dt,
+    all_drug_genes,
+    by.x=c("gene"),
+    by.y=c("gene_symbol"),
+    allow.cartesian = T
+  ) %>% 
+  merge(
+    ade_cohort(drugs=sjs_ten_drug_ids,events=sjs_ten_ids) %>% 
+      data.table() %>% 
+      .[significance=="Null model"],
+    by=c("atc_concept_id","nichd"),
+    allow.cartesian=T
+  ) %>% 
+  .[,.(ade,nichd,atc_concept_id,meddra_concept_id,gam_score,gam_score_se,
+       gene,type,sample,residual,probe)]
+
+gene_type <- 
+  iter[,.(gene,type)] %>% unique()
+
+
+iter
+```
+
+```{r}
+
+library(doParallel)
+registerDoParallel(cores=4)
+
+Nsamp = 100
+zs = rnorm(Nsamp)
+all_gene_dt <- NULL
+all_full_gene_dt <- NULL
+all_gsubs <- NULL
+all_overall_risks_comparisons <- NULL
+system.time({
+  for(i in 1:nrow(gene_type)){
+
+    gene_=gene_type[i,gene]
+    type_=gene_type[i,type]
+    cat("\nIteration",i,":",gene_,type_,"influencing drug risks\n")
+    
+    probes <- resid_value_gene_dt[gene==gene_ & fdr<0.1,unique(probe)]
+    if(length(probes)==0)next
+    
+    gsub_obs <- resid_value_gene_dt[probe %in% probes & gene==gene_]
+    all_gsubs <- 
+      bind_rows(
+        all_gsubs,
+        gsub_obs
+      )
+    
+    substrates <- 
+      iter[
+        gene==gene_ &
+          type==type_,
+        unique(ade)
+      ]
+    
+    if(length(substrates)<2)next
+    
+    nonsubstrates <- 
+      setdiff(
+        iter[
+          gene!=gene_,
+          unique(ade)
+        ],
+        substrates
+      )
+    
+    if(length(nonsubstrates)<2)next
+    
+    substrate_risks <- 
+      dts_sub[
+        ade %in% substrates
+      ]
+    substrate_risks$substrate_type <- "substrate drug-events"
+    nonsubstrate_risks <- 
+      dts_sub[
+        ade %in% nonsubstrates
+      ]
+    nonsubstrate_risks$substrate_type <- "nonsubstrate drug-events"
+    overall_risks_comparison <- bind_rows(substrate_risks,nonsubstrate_risks)
+    overall_risks_comparison$gene <- gene_
+    overall_risks_comparison$type <- type_
+    all_overall_risks_comparisons <- 
+      bind_rows(
+        all_overall_risks_comparisons,
+        overall_risks_comparison
+      )
+    
+    substrate_drugs <- 
+      sapply(substrates,function(x){str_split(x,"_")[[1]][1]}) %>% unique()
+    nonsubstrate_drugs <- 
+      sapply(nonsubstrates,function(x){str_split(x,"_")[[1]][1]}) %>% unique()  
+    
+    expand.grid(ade = substrates,probe=probes) %>% data.table() %>% nrow() %>% cat("\n\t\t",.)
+    expand.grid(ade = nonsubstrates,probe=probes) %>% data.table() %>% nrow() %>% cat("\n\t\t",.)
+    
+    gene_dt <- 
+      foreach(boot_=1:length(zs),.combine = "rbind",.errorhandling = "remove") %dopar% {
+        z_ = zs[boot_]
+        tmp <- data.table()
+        
+        grid <-
+          bind_rows(
+            expand.grid(ade = substrates,probe=probes,substrate="substrate") %>% data.table(),
+            expand.grid(ade = nonsubstrates,probe=probes,substrate="nonsubstrate") %>% data.table()
+          )
+        
+        tmp <- 
+          lapply(1:nrow(grid),function(i){
+            ade_ <- grid[i,ade]
+            probe_ <- grid[i,probe]
+            stype_ <- grid[i,substrate]
+            mi_ <- 
+              merge(
+                dts_sub[ade==ade_,.(ade,nichd,score = (z_*gam_score_se)+gam_score)] %>% unique(),
+                gsub_obs[probe==probe_,.(m = mean(residual)),nichd],
+                by="nichd"
+              ) %>% .[,maigesPack::MI(m,score)]
+            cor_ <- 
+              merge(
+                dts_sub[ade==ade_,.(ade,nichd,score = (z_*gam_score_se)+gam_score)] %>% unique(),
+                gsub_obs[probe==probe_,.(m = mean(residual)),nichd],
+                by="nichd"
+              ) %>% .[,cor(m,score,method="spearman")]
+            data.table(ade = ade_,probe = probe_,mi=mi_,cor=cor_,substrate=stype_)
+          }) %>% bind_rows()
+        
+        tmp$gene = gene_
+        tmp$type = type_
+        tmp$z = z_
+        tmp$boot=boot_
+        
+        tmp
+        
+      }    
+    
+    smi = gene_dt[substrate=="substrate",mean(mi),.(ade,probe)][,`V1`]
+    nsmi = gene_dt[substrate=="nonsubstrate",mean(mi),.(ade,probe)][,`V1`]
+    denom = (length(smi)*length(nsmi))
+    
+    wtest <- 
+      wilcox.test(smi,nsmi,alternative="g")
+    
+    smi = gene_dt[substrate=="substrate"][,mi]
+    nsmi = gene_dt[substrate=="nonsubstrate"][,mi]
+    ttest <- 
+      t.test(smi,nsmi,alternative="g")
+    
+    all_gene_dt <- 
+      bind_rows(
+        all_gene_dt,
+        gene_dt[,
+                .(
+                  gene = gene_,
+                  type = type_,
+                  auroc = 
+                    (wtest$statistic/
+                       denom),
+                  wt_pvalue = 
+                    wtest$p.value,
+                  ttest_statistic = 
+                    ttest$statistic,
+                  ttest_pvalue = 
+                    ttest$p.value
+                )
+        ]
+      )
+    
+    
+    all_full_gene_dt <- 
+      bind_rows(
+        all_full_gene_dt,
+        gene_dt
+      )
+    
+  }
+})
+
+all_gene_dt$fdr <- p.adjust(all_gene_dt$ttest_pvalue,method="fdr")
+
+```
+
+```{r}
+
+gdata_stages <- stages[2:6]
+
+all_gene_dt
+
+all_overall_risks_comparisons[substrate_type=="substrate drug-events","substrate_type"] <- "substrate"
+all_overall_risks_comparisons[substrate_type=="nonsubstrate drug-events","substrate_type"] <- "nonsubstrate"
+
+g <- all_overall_risks_comparisons[
+  nichd %in% gdata_stages & substrate_type=="substrate"
+] %>% 
+  merge(
+    all_gene_dt %>% 
+      .[fdr<0.012],
+    by=c("gene","type")
+  ) %>% 
+  .[,.(lwr = mean(gam_score) - sd(gam_score),
+       avg = mean(gam_score),
+       upr = mean(gam_score) + sd(gam_score)),
+    .(nichd,substrate_type,gene)
+  ] %>% 
+  ggplot(aes(factor(nichd,levels=stages),
+           avg,group=gene)) +
+  geom_line(size=1) +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  xlab("") +
+  ylab("GAM risk") +
+  facet_wrap(~gene,scales="free_y",ncol=2) +
+  theme(
+    strip.background = element_blank(),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_substrate_risk.png"),width=5,height=4)
+
+g <- all_gsubs[
+  fdr<0.12,
+  .(sample,probe,gene,nichd,residual)
+] %>% 
+  merge(
+    all_gene_dt %>% 
+      .[order(ttest_pvalue)] %>% 
+      .[fdr<0.012,.SD[1],gene],
+    by="gene"
+  ) %>% 
+  .[,
+    .(avg = mean(residual)),
+    .(nichd,probe,gene)
+  ] %>% 
+  .[nichd!=""] %>% 
+  ggplot(aes(factor(nichd,levels=stages[2:6]),avg,group=probe)) +
+  geom_point() +
+  geom_line() +
+  xlab("") +
+  ylab("Probe residual\nexpression") +
+  facet_wrap(~gene,scales="free_y") +
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_sjs_ten_expression_dynamics.png"),width=5,height=4)
+
+all_overall_risks_comparisons[grepl("^substrate",substrate_type),unique(ade_name)]
+
+```
+
+
+
+# Case #3: Corticosteroid-induced Adrenal suppression
+## What drugs and events would comprise of the ADE
+
+### Topical Corticosteroids
+
+```{r}
+
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(
+    str_detect(atc2_concept_name,"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS") &
+      str_detect(atc4_concept_name,"potent")
+    )
+
+drug_ids <- 
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(
+    str_detect(atc2_concept_name,"CORTICOSTEROIDS, DERMATOLOGICAL PREPARATIONS") & 
+      str_detect(atc4_concept_name,"potent")
+          ) %>%
+  distinct(atc_concept_id) %>% 
+  unlist %>% unname
+
+```
+
+### Adrenal Suppression
+
+```{r}
+
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    str_detect(meddra_concept_name_1,"Hypothalamic pituitary adrenal axis suppression") |
+      str_detect(meddra_concept_name_1,"Adrenal suppression") | 
+      str_detect(meddra_concept_name_1,"^Cushing's syndrome") 
+    )
+
+
+event_ids <- 
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    str_detect(meddra_concept_name_1,"Hypothalamic pituitary adrenal axis suppression") |
+      str_detect(meddra_concept_name_1,"Adrenal suppression") | 
+      str_detect(meddra_concept_name_1,"^Cushing's syndrome") 
+    ) %>% 
+  collect() %>% 
+  distinct(meddra_concept_id) %>% 
+  unlist %>% unname
+
+```
+
+### adrenal suppression coreported drugs
+
+```{r}
+
+coreported_drugs(event_ids)
+
+ade_cohort(drugs=coreported_drugs(event_ids),events=event_ids) %>% 
+  .[,.(atc_concept_name,meddra_concept_name,ade_nreports,significance,ade,cluster_name,max_score_nichd)] %>% 
+  unique()
+
+```
+
+### ADEs
+
+```{r}
+
+ade_cohort(drugs=drug_ids,events=event_ids) %>% 
+  .[,.(atc_concept_name,meddra_concept_name,ade_nreports,significance,ade,cluster_name,max_score_nichd)] %>% 
+  unique()
+
+```
+
+## ADE reporting across stages
+
+```{r,fig.dim=c(8,5)}
+
+g <- ade_cohort(drugs=drug_ids,events = event_ids) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade_name","nichd","meddra_concept_name"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,color=meddra_concept_name,group=ade_name)) +
+    geom_line() +
+    guides(color=guide_legend(title="",ncol=1)) +
+    xlab("") +
+    ylab("Number of reports") +
+    theme(
+      strip.background = element_blank(),
+      legend.position = "bottom",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"corticosteroidinduced_as_reporting_across_stages.png"),width=6,height=5)
+
+g <- ade_cohort(drugs=coreported_drugs(event_ids),events = event_ids) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade_name","nichd","meddra_concept_name"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,color=meddra_concept_name,group=ade_name)) +
+    geom_line() +
+    guides(color=guide_legend(title="",ncol=1)) +
+    xlab("") +
+    ylab("Number of reports") +
+    theme(
+      strip.background = element_blank(),
+      legend.position = "bottom",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_reporting_across_stages.png"),width=6,height=5)
+
+
+```
+
+## How many ADEs are significant nominally and by the null model?
+
+
+```{r}
+
+ade_cohort(drugs=drug_ids,events = event_ids) %>% 
+  .[,length(unique(atc_concept_id)),.(significance,meddra_concept_name)]
+
+ade_cohort(drugs=coreported_drugs(event_ids),events = event_ids) %>% 
+  .[,length(unique(atc_concept_id)),.(significance,meddra_concept_name)]
+
+```
+
+## Where are ADE risk estimates significant?
+
+```{r,fig.dim=c(15,10)}
+
+g <- ade_cohort(drugs=drug_ids,events = event_ids) %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 20),scales="free_y") +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"corticosteroidinduced_as_drugevents.png"),width=13,height=9)
+
+g <- ade_cohort(drugs=drug_ids,events = event_ids) %>% 
+  .[significance=="Null model"] %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 40),scales="free_y") +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"corticosteroidinduced_as_significant_drugevents.png"),width=12,height=5)
+
+g <- ade_cohort(drugs=coreported_drugs(event_ids),events = event_ids) %>% 
+  .[significance=="Null model"] %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 25),scales="free_y") +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_significant_drugevents.png"),width=16,height=10)
+
+```
+
+
+## What are the dynamic clusters that all and significant ADEs are assigned?
+
+```{r,fig.dim=c(8,7)}
+
+g <- ade_cohort(drugs=drug_ids,events=event_ids) %>% 
+  ggplot(aes(cluster_name,fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  guides(fill=guide_legend(title="Signifiance")) +
+  xlab("") +
+  ylab("Percent of drug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"corticosteroidinduced_as_cluster_percentage.png"),width=7,height=4)
+
+g <- ade_cohort(drugs=coreported_drugs(event_ids),events=event_ids) %>% 
+  ggplot(aes(cluster_name,fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  guides(fill=guide_legend(title="Signifiance")) +
+  xlab("") +
+  ylab("Percent of drug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_cluster_percentage.png"),width=7,height=4)
+
+```
+
+
+## Are topical corticosteroid drug risks more often significant at a stage, compared to nonsignificant and not at that stage?
+
+```{r}
+
+totalades <- 
+tbl(
+  db,
+  sql("
+      select distinct ade
+      from ade_nichd
+      ")
+  ) %>% collect() %>% unlist %>% unname
+
+sig_null_dts <- 
+tbl(
+  db,
+  sql("
+      select ade,ade_nichd.nichd as nichd
+      from ade_nichd
+      inner join
+      ade_null
+      on ade_nichd.nichd=ade_null.nichd
+      where gam_score_90mse>null_99
+      ")
+  ) %>% collect() %>% data.table()
+```
+
+```{r}
+
+catades <- 
+  unique(ade_cohort(drugs=coreported_drugs(event_ids),events=event_ids)$ade)
+
+test_dts <- NULL
+for(st in stages){
+  
+  stagesigades <- 
+  sig_null_dts[
+      nichd==st,
+      unique(ade)]
+  
+  a <- intersect(stagesigades,catades) %>% length()
+  b <- setdiff(stagesigades,catades) %>% length()
+  c <- setdiff(catades,stagesigades) %>% length()
+  d <- setdiff(totalades,c(catades,stagesigades)) %>% 
+          length()
+  mat <- matrix(c(a,b,c,d),nrow = 2,byrow = T)
+  test <- fisher.test(mat,conf.level=0.95)
+
+  test_dts <- 
+    bind_rows(
+      test_dts,
+      data.table(
+        nichd = st,
+        a=a,
+        b=b,
+        c=c,
+        d=d,
+        lwr=test$conf.int[1],
+        odds=test$estimate,
+        upr=test$conf.int[2],
+        pvalue=test$p.value
+    )
+  )
+  
+  
+}
+
+```
+
+```{r,fig.dim=c(8,6)}
+
+test_dts
+
+g <- test_dts %>% 
+  ggplot(aes(forcats::fct_relevel(nichd,stages),odds)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  geom_hline(yintercept = 1,color="red",linetype="dashed") +
+  scale_y_continuous(trans="log10") +
+  xlab("") +
+  ylab("Development stage\nodds enrichment") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_stage_enrichment.png"),width=7,height=4)
+
+```
+
+
+## Drug-gene summary
+
+```{r,fig.dim=c(7,25)}
+
+
+tmp <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% 
+      drug_ids
+    ) %>% 
+  select(type,action,gene_symbol,atc_concept_id) %>% 
+  collect() %>% 
+  data.table() %>% 
+  merge(
+    ade_cohort(drugs=drug_ids,events=event_ids) %>% 
+      .[,.(atc_concept_id,ade,ade_name,
+           significance,cluster_name)] %>% 
+      unique(),
+    by="atc_concept_id",
+    allow.cartesian=T
+  ) %>% 
+  .[,.(type,action,gene_symbol,ade,
+       significance,cluster_name,ade_name,atc_concept_id)] %>% 
+  unique() 
+
+tmp %>%
+  .[significance=="Null model",
+    .(N = length(unique(gene_symbol))),.(type,action)] %>% .[order(N,decreasing = T)]
+
+g <- tmp %>%
+    .[,
+      .(drug = sapply(str_split(ade_name," and "),function(x){x[1]}),
+        gene_symbol,action)] %>% 
+  unique() %>% 
+  ggplot(aes(gene_symbol,drug,fill=action)) +
+  geom_tile() +
+  xlab("") +
+  ylab("") +
+  guides(fill=guide_legend(title="Drug action")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"corticosteroidinduced_as_gene_all_drug_action_tiles.png"),g,width=10,height=3)
+
+ids_ <- coreported_drugs(event_ids)
+tmp <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% 
+      ids_
+    ) %>% 
+  select(type,action,gene_symbol,atc_concept_id) %>% 
+  collect() %>% 
+  data.table() %>% 
+  merge(
+    ade_cohort(drugs=coreported_drugs(event_ids),events=event_ids) %>% 
+      .[,.(atc_concept_id,ade,ade_name,
+           significance,cluster_name)] %>% 
+      unique(),
+    by="atc_concept_id",
+    allow.cartesian=T
+  ) %>% 
+  .[,.(type,action,gene_symbol,ade,
+       significance,cluster_name,ade_name,atc_concept_id)] %>% 
+  unique() 
+
+tmp %>%
+  .[significance=="Null model",
+    .(N = length(unique(gene_symbol))),.(type,action)] %>% .[order(N,decreasing = T)]
+
+g <- tmp %>%
+    .[significance=="Null model",
+      .(drug = sapply(str_split(ade_name," and "),function(x){x[1]}),
+        gene_symbol,action)] %>% 
+  unique() %>% 
+  ggplot(aes(gene_symbol,drug,fill=action)) +
+  geom_tile() +
+  xlab("") +
+  ylab("") +
+  guides(fill=guide_legend(title="Drug action")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_gene_drug_action_tiles.png"),g,width=20,height=8)
+
+```
+
+## Do gene expression dynamics associate with substrate risk dynamics across child development stages?
+
+```{r}
+
+resid_value_gene_dt <- 
+  fread(
+    paste0(
+      data_dir,
+      "database_generation_gene_expression_evaluation_stage_association_to_residuals_samples_significance.csv"
+      )
+    )
+
+ids_ <- coreported_drugs(event_ids)
+all_drug_genes <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% ids_ & 
+      action=="substrate"
+    ) %>% 
+  distinct(atc_concept_id,gene_symbol,type) %>% 
+  collect() %>% 
+  data.table()
+
+gene_type <- 
+  all_drug_genes[gene_symbol %in% resid_value_gene_dt$gene,.(gene_symbol,type)] %>% unique()
+
+dts_sub <- 
+  ade_cohort(drugs=ids_,events=event_ids) %>% 
+      data.table() %>% 
+      .[significance=="Null model"]
+
+iter <- 
+  merge(
+    resid_value_gene_dt,
+    all_drug_genes,
+    by.x=c("gene"),
+    by.y=c("gene_symbol"),
+    allow.cartesian = T
+  ) %>% 
+  merge(
+    ade_cohort(drugs=ids_,events=event_ids) %>% 
+      data.table() %>% 
+      .[significance=="Null model"],
+    by=c("atc_concept_id","nichd"),
+    allow.cartesian=T
+  ) %>% 
+  .[,.(ade,nichd,atc_concept_id,meddra_concept_id,gam_score,gam_score_se,
+       gene,type,sample,residual,probe)]
+
+gene_type <- 
+  iter[,.(gene,type)] %>% unique()
+
+
+iter
+```
+
+```{r}
+
+library(doParallel)
+registerDoParallel(cores=4)
+
+Nsamp = 100
+zs = rnorm(Nsamp)
+all_gene_dt <- NULL
+all_full_gene_dt <- NULL
+all_gsubs <- NULL
+all_overall_risks_comparisons <- NULL
+system.time({
+  for(i in 1:nrow(gene_type)){
+
+    gene_=gene_type[i,gene]
+    type_=gene_type[i,type]
+    cat("\nIteration",i,":",gene_,type_,"influencing drug risks\n")
+    
+    probes <- resid_value_gene_dt[gene==gene_ & fdr<0.1,unique(probe)]
+    if(length(probes)==0)next
+    
+    gsub_obs <- resid_value_gene_dt[probe %in% probes & gene==gene_]
+    all_gsubs <- 
+      bind_rows(
+        all_gsubs,
+        gsub_obs
+      )
+    
+    substrates <- 
+      iter[
+        gene==gene_ &
+          type==type_,
+        unique(ade)
+      ]
+    
+    if(length(substrates)<2)next
+    
+    nonsubstrates <- 
+      setdiff(
+        iter[
+          gene!=gene_,
+          unique(ade)
+        ],
+        substrates
+      )
+    
+    if(length(nonsubstrates)<2)next
+    
+    substrate_risks <- 
+      dts_sub[
+        ade %in% substrates
+      ]
+    substrate_risks$substrate_type <- "substrate drug-events"
+    nonsubstrate_risks <- 
+      dts_sub[
+        ade %in% nonsubstrates
+      ]
+    nonsubstrate_risks$substrate_type <- "nonsubstrate drug-events"
+    overall_risks_comparison <- bind_rows(substrate_risks,nonsubstrate_risks)
+    overall_risks_comparison$gene <- gene_
+    overall_risks_comparison$type <- type_
+    all_overall_risks_comparisons <- 
+      bind_rows(
+        all_overall_risks_comparisons,
+        overall_risks_comparison
+      )
+    
+    substrate_drugs <- 
+      sapply(substrates,function(x){str_split(x,"_")[[1]][1]}) %>% unique()
+    nonsubstrate_drugs <- 
+      sapply(nonsubstrates,function(x){str_split(x,"_")[[1]][1]}) %>% unique()  
+    
+    expand.grid(ade = substrates,probe=probes) %>% data.table() %>% nrow() %>% cat("\n\t\t",.)
+    expand.grid(ade = nonsubstrates,probe=probes) %>% data.table() %>% nrow() %>% cat("\n\t\t",.)
+    
+    gene_dt <- 
+      foreach(boot_=1:length(zs),.combine = "rbind",.errorhandling = "remove") %dopar% {
+        z_ = zs[boot_]
+        tmp <- data.table()
+        
+        grid <-
+          bind_rows(
+            expand.grid(ade = substrates,probe=probes,substrate="substrate") %>% data.table(),
+            expand.grid(ade = nonsubstrates,probe=probes,substrate="nonsubstrate") %>% data.table()
+          )
+        
+        tmp <- 
+          lapply(1:nrow(grid),function(i){
+            ade_ <- grid[i,ade]
+            probe_ <- grid[i,probe]
+            stype_ <- grid[i,substrate]
+            mi_ <- 
+              merge(
+                dts_sub[ade==ade_,.(ade,nichd,score = (z_*gam_score_se)+gam_score)] %>% unique(),
+                gsub_obs[probe==probe_,.(m = mean(residual)),nichd],
+                by="nichd"
+              ) %>% .[,maigesPack::MI(m,score)]
+            cor_ <- 
+              merge(
+                dts_sub[ade==ade_,.(ade,nichd,score = (z_*gam_score_se)+gam_score)] %>% unique(),
+                gsub_obs[probe==probe_,.(m = mean(residual)),nichd],
+                by="nichd"
+              ) %>% .[,cor(m,score,method="spearman")]
+            data.table(ade = ade_,probe = probe_,mi=mi_,cor=cor_,substrate=stype_)
+          }) %>% bind_rows()
+        
+        tmp$gene = gene_
+        tmp$type = type_
+        tmp$z = z_
+        tmp$boot=boot_
+        
+        tmp
+        
+      }    
+    
+    smi = gene_dt[substrate=="substrate",mean(mi),.(ade,probe)][,`V1`]
+    nsmi = gene_dt[substrate=="nonsubstrate",mean(mi),.(ade,probe)][,`V1`]
+    denom = (length(smi)*length(nsmi))
+    
+    wtest <- 
+      wilcox.test(smi,nsmi,alternative="g")
+    
+    smi = gene_dt[substrate=="substrate"][,mi]
+    nsmi = gene_dt[substrate=="nonsubstrate"][,mi]
+    ttest <- 
+      t.test(smi,nsmi,alternative="g")
+    
+    all_gene_dt <- 
+      bind_rows(
+        all_gene_dt,
+        gene_dt[,
+                .(
+                  gene = gene_,
+                  type = type_,
+                  auroc = 
+                    (wtest$statistic/
+                       denom),
+                  wt_pvalue = 
+                    wtest$p.value,
+                  ttest_statistic = 
+                    ttest$statistic,
+                  ttest_pvalue = 
+                    ttest$p.value
+                )
+        ]
+      )
+    
+    
+    all_full_gene_dt <- 
+      bind_rows(
+        all_full_gene_dt,
+        gene_dt
+      )
+    
+  }
+})
+
+all_gene_dt$fdr <- p.adjust(all_gene_dt$ttest_pvalue,method="fdr")
+
+```
+
+```{r}
+
+gdata_stages <- stages[2:6]
+
+all_gene_dt
+
+all_overall_risks_comparisons[substrate_type=="substrate drug-events","substrate_type"] <- "substrate"
+all_overall_risks_comparisons[substrate_type=="nonsubstrate drug-events","substrate_type"] <- "nonsubstrate"
+
+g <- all_overall_risks_comparisons[
+  nichd %in% gdata_stages & substrate_type=="substrate"
+] %>% 
+  merge(
+    all_gene_dt %>% 
+      .[fdr<0.05],
+    by=c("gene","type")
+  ) %>% 
+  .[,.(lwr = mean(gam_score) - sd(gam_score),
+       avg = mean(gam_score),
+       upr = mean(gam_score) + sd(gam_score)),
+    .(nichd,substrate_type,gene)
+  ] %>% 
+  ggplot(aes(factor(nichd,levels=stages),
+           avg,group=gene)) +
+  geom_line(size=1) +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  xlab("") +
+  ylab("GAM risk") +
+  facet_wrap(~gene,scales="free_y",nrow=2) +
+  theme(
+    strip.background = element_blank(),
+    legend.position = "bottom",
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_substrate_risk.png"),width=7,height=4)
+
+g <- all_gsubs[
+  fdr<0.1,
+  .(sample,probe,gene,nichd,residual)
+] %>% 
+  merge(
+    all_gene_dt %>% 
+      .[order(ttest_pvalue)] %>% 
+      .[fdr<0.05,.SD[1],gene],
+    by="gene"
+  ) %>% 
+  .[,
+    .(avg = mean(residual)),
+    .(nichd,probe,gene)
+  ] %>% 
+  .[nichd!=""] %>% 
+  ggplot(aes(factor(nichd,levels=stages[2:6]),avg,group=probe)) +
+  geom_point() +
+  geom_line() +
+  xlab("") +
+  ylab("Probe residual\nexpression") +
+  facet_wrap(~gene,scales="free_y",nrow=2) +
+  theme(
+    strip.background = element_blank(),
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"druginduced_as_expression_dynamics.png"),width=7,height=4)
+
+all_full_gene_dt[gene=="ORM1"] %>% 
+  ggplot(aes(mi,fill=substrate)) + 
+  geom_density(alpha=0.5) + 
+  guides(fill=guide_legend(title="Drug")) + 
+  xlab("Mutual information") + 
+  ylab("Density")
+
+
+all_overall_risks_comparisons[grepl("^substrate",substrate_type),unique(ade_name)]
+
+```
+
+
+
+
+# Case #4: Tetracycline vs beta lactam-induced tooth discoloration
+## Background
+### Clinical Manifestation
+### Biological mechcanism
+### Developmental mechanism
+## What drugs and events would comprise of the ADE
+
+### Tetracyclines
+
+```{r}
+
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(
+      str_detect(atc3_concept_code,"J01A")
+    )
+
+tetra_ids <- 
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(
+      str_detect(atc3_concept_code,"J01A")
+      ) %>%
+  distinct(atc_concept_id) %>% 
+  unlist %>% unname
+
+```
+
+### Beta lactams
+
+```{r}
+
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(
+      str_detect(atc3_concept_code,"J01C")
+    )
+
+blactams_ids <- 
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(
+      str_detect(atc3_concept_code,"J01C")
+      ) %>%
+  distinct(atc_concept_id) %>% 
+  unlist %>% unname
+
+```
+
+### Teeth discoloration
+
+```{r}
+
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    str_detect(meddra_concept_name_1,"Tooth discolouration")
+    )
+
+tbl(db,"event") %>% 
+    collect() %>% 
+    filter(
+        str_detect(meddra_concept_name_2,"Metabolic bone disorders") & str_detect(meddra_concept_name_4,"Musculoskeletal and connective tissue disorders") 
+    )
+
+
+tooth_discolor_ids <- 
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    str_detect(meddra_concept_name_1,"Tooth discolouration") 
+    ) %>% 
+  collect() %>% 
+  distinct(meddra_concept_id) %>% 
+  unlist %>% unname
+
+```
+### ADEs
+
+```{r}
+
+ade_cohort(tetra_ids,tooth_discolor_ids)
+ade_cohort(blactams_ids,tooth_discolor_ids)
+
+```
+
+## ADE reporting across stages
+
+```{r,fig.dim=c(8,5)}
+
+g <- ade_cohort(drugs=tetra_ids,events = tooth_discolor_ids) %>% 
+  bind_rows(
+    ade_cohort(drugs=blactams_ids,events = tooth_discolor_ids)
+  ) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade_name","nichd","meddra_concept_name"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,group=ade_name)) +
+    geom_line() +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width=25),nrow=1) +
+    xlab("") +
+    ylab("Number\nof reports") +
+    theme(
+      strip.background = element_blank(),
+      strip.text = element_blank(),
+      legend.position = "none",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"druginduced_toothdiscoloration_reporting_across_stages.png"),width=10,height=3)
+
+
+```
+
+## Which ADEs are significant?
+
+```{r}
+
+ade_cohort(drugs=tetra_ids,events = tooth_discolor_ids) %>% 
+  bind_rows(
+    ade_cohort(drugs=blactams_ids,events = tooth_discolor_ids)
+  ) %>% 
+  .[significance=="Null model",.(ade_name)] %>% unique()
+
+```
+
+## Where are ADE risk estimates significant?
+
+```{r,fig.dim=c(15,10)}
+
+g <- ade_cohort(drugs=tetra_ids,events = tooth_discolor_ids) %>% 
+  bind_rows(
+    ade_cohort(drugs=blactams_ids,events = tooth_discolor_ids)
+  ) %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 20),scales="free_y",nrow=1) +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Reports)")
+g
+ggsave(paste0(img_dir,basename,"druginduced_toothdiscoloration_drugevents.png"),width=12,height=4)
+
+```
+
+## What is the proportion significant in each group?
+
+```{r}
+
+ade_cohort(drugs=tetra_ids,events = tooth_discolor_ids) %>% 
+  bind_rows(
+    ade_cohort(drugs=blactams_ids,events = tooth_discolor_ids)
+  ) %>% 
+  .[,.(significance,atc_concept_name,cluster_name)] %>% 
+  unique()
+
+```
+# Case #5: Montelukast-induced psychiatric disorders
+## What drugs and events would comprise of the ADE
+### Montelukast
+
+```{r}
+
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(str_detect(atc_concept_name,"mont"))
+
+montelukast_id <- 
+tbl(db,"drug") %>% 
+  collect() %>% 
+  filter(str_detect(atc_concept_name,"mont")) %>% 
+  distinct(atc_concept_id) %>% 
+  unlist %>% unname
+
+```
+### Drugs with montelukast targets
+
+```{r}
+
+montelukast_targets <- 
+tbl(db,"drug_gene") %>% 
+  filter(atc_concept_id=="21603356" & type=="target") %>% 
+  collect() %>% 
+  select(gene_symbol) %>% unlist %>% unname
+
+montelukast_target_drugs <- 
+tbl(db,"drug_gene") %>% 
+  filter(gene_symbol %in% montelukast_targets & type=="target") %>% 
+  collect() %>% 
+  distinct(atc_concept_id) %>% unlist %>% unname
+
+tbl(db,"drug") %>% 
+  filter(atc_concept_id %in% montelukast_target_drugs)
+```
+
+### LTR antagonist drugs by drugbank
+
+```{r}
+
+ltr_antagonist_drugs <- 
+  tbl(db,"drug_gene") %>% 
+  collect() %>% 
+  filter(action=="antagonist" & grepl("LTR",gene_symbol)) %>% 
+  distinct(atc_concept_id) %>% unlist %>% unname
+
+tbl(db,"drug") %>% 
+  filter(atc_concept_id %in% ltr_antagonist_drugs)
+```
+
+### LTR antagonist drugs by atc
+
+```{r}
+
+ltr_antagonist_atc_drugs <- 
+  tbl(db,"drug") %>%
+  filter(atc4_concept_code=="R03DC") %>% 
+  collect() %>% 
+  distinct(atc_concept_id) %>% unlist %>% unname
+
+```
+
+
+### Psychiatric disorders, manual
+
+The FDA issued a black box warning for montelukast-induced psychiatric disorders:
+
+https://wayback.archive-it.org/7993/20170404172438/https:/www.fda.gov/Drugs/DrugSafety/PostmarketDrugSafetyInformationforPatientsandProviders/DrugSafetyInformationforHeathcareProfessionals/ucm165489.htm
+
+I extracted and revised those disorder terms and extracted those MedDRA terms from our data.
+
+
+```{r}
+
+psych_events <-
+tbl(db,"event") %>% 
+  collect() %>% 
+  filter(
+    meddra_concept_name_4=="Psychiatric disorders"
+    ) %>% data.table()
+
+toMatch <- c("[Aa]gitat", "[Aa]ggress", "[Aa]nxious", "[Dd]ream", '[Hh]allucinations', "[Dd]epress", "[Ii]nsomnia", "[Ii]rritabil", "[Rr]estless", "[Ss]uicid" ,"[Tt]hink","Thought","[Bb]ehavior","[Tt]remor")
+
+#https://stackoverflow.com/questions/7597559/grep-using-a-character-vector-with-multiple-patterns
+psych_events[
+  grepl(paste(toMatch,collapse="|"),meddra_concept_name_1) |
+    grepl(paste(toMatch,collapse="|"),meddra_concept_name_2) |
+    grepl(paste(toMatch,collapse="|"),meddra_concept_name_3),
+  .(meddra_concept_name_1,meddra_concept_name_2,meddra_concept_name_3,
+    meddra_concept_class_id_1,meddra_concept_class_id_2,meddra_concept_class_id_3)
+  ]
+
+psych_ids <- 
+psych_events[
+  grepl(paste(toMatch,collapse="|"),meddra_concept_name_1) |
+    grepl(paste(toMatch,collapse="|"),meddra_concept_name_2) |
+    grepl(paste(toMatch,collapse="|"),meddra_concept_name_3),
+  meddra_concept_id
+  ]
+
+
+length(psych_ids)
+
+```
+
+### Psychiatric disorders, meddra
+
+```{r}
+
+psych_meddra_ids <- 
+  tbl(db,"event") %>% 
+  collect() %>% 
+  filter(grepl("Psych",meddra_concept_name_4)) %>% 
+  distinct(meddra_concept_id) %>% unlist %>% unname
+
+length(psych_meddra_ids)
+
+```
+
+### ADEs
+
+```{r}
+
+ade_cohort(drugs=ltr_antagonist_atc_drugs,events=psych_meddra_ids)[,length(unique(ade)),atc_concept_name]
+
+ade_cohort(drugs=montelukast_target_drugs,events=psych_meddra_ids)[,
+  length(unique(ade)),.(atc_concept_name)]
+```
+
+## ADE reporting across stages
+
+```{r,fig.dim=c(8,5)}
+
+g <- ade_cohort(drugs=ltr_antagonist_atc_drugs,events = psych_meddra_ids) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+    melt(id.vars=c("ade","nichd","atc_concept_name"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,color=atc_concept_name,group=ade)) +
+    geom_line() +
+    guides(color=guide_legend(title="",ncol=1)) +
+  facet_grid(atc_concept_name~.,scales="free_y") +
+    xlab("") +
+    ylab("Number of reports") +
+    theme(
+      strip.background = element_blank(),
+      legend.position = "bottom",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"ltrinduced_psychaes_reporting_across_stages.png"),width=6,height=5)
+
+g <- ade_cohort(drugs=montelukast_target_drugs,events = psych_meddra_ids) %>% 
+    rename(
+        `drug-event` = DE
+    ) %>% 
+    data.table() %>% 
+  .[
+    grepl("sulf",atc_concept_name) | 
+      grepl("bal",atc_concept_name) | 
+      grepl("mont",atc_concept_name)] %>% 
+    melt(id.vars=c("ade","nichd","atc_concept_name"),measure.vars=c("drug-event")) %>% 
+    ggplot(
+        aes(forcats::fct_relevel(nichd,stages),
+            value,color=atc_concept_name,group=ade)) +
+    geom_line() +
+    guides(color=guide_legend(title="",ncol=1)) +
+  facet_wrap(atc_concept_name~.,scales="free_y",nrow=1) +
+    xlab("") +
+    ylab("Number of reports") +
+  scale_y_continuous(breaks = function(x) unique(floor(pretty(seq(0, (max(x) + 1) * 1.1))))) +
+    theme(
+      strip.background = element_blank(),
+      legend.position = "none",
+        axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+    )
+g
+ggsave(paste0(img_dir,basename,"montelukasttargetinduced_psychaes_reporting_across_stages.png"),width=12,height=4)
+
+
+```
+
+## How many ADEs are significant risks?
+
+```{r}
+
+ade_cohort(drugs=ltr_antagonist_atc_drugs,events=psych_meddra_ids)[,
+  length(unique(ade)),.(significance,atc_concept_name)]
+
+ade_cohort(drugs=ltr_antagonist_atc_drugs,events=psych_meddra_ids)[
+  atc_concept_name=="zafirlukast",.(ade_name,significance)
+] %>% unique()
+
+ade_cohort(drugs=ltr_antagonist_drugs,events=psych_meddra_ids)[,
+  length(unique(ade)),.(significance,atc_concept_name)]
+
+ade_cohort(drugs=montelukast_target_drugs,events=psych_meddra_ids)[,
+  length(unique(ade)),.(significance,atc_concept_name)]
+
+```
+## Where were ade risks significant?
+
+```{r,fig.dim=c(15,10)}
+
+g <- ade_cohort(drugs=ltr_antagonist_atc_drugs,events = psych_meddra_ids) %>% 
+  .[significance=="Null model"] %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 20),scales="free_y") +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "left"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"ltrinduced_psychaes_significant_drugevents.png"),width=16,height=10)
+
+g <- ade_cohort(drugs=montelukast_target_drugs,events = psych_meddra_ids) %>% 
+  .[significance=="Null model" & atc_concept_name!="montelukast"] %>% 
+  rename(
+    `drug-event` = DE,
+    event = E,
+    drug = D
+  ) %>% 
+  pivot_longer(cols=c("drug","event","drug-event")) %>% 
+  filter(value!=0) %>% 
+  mutate(
+    value = log10(value+1)
+  ) %>% 
+  ggplot() +
+  geom_bar(aes(forcats::fct_relevel(nichd,stages),value,fill=name),
+           stat="identity",position="dodge") +
+  geom_errorbar(aes(x=nichd,y=gam_score,
+                    ymin=gam_score_90mse,
+                    ymax=gam_score_90pse,
+                    group=ade),
+                width=0.2,size=1) +
+  geom_point(aes(nichd,gam_score),size=2) +
+  scale_y_continuous(sec.axis=sec_axis(~.,name="Risk of ADE\n(GAM score)")) + 
+  scale_color_brewer(palette = "Dark2") +
+  facet_wrap(~ade_name,labeller = label_wrap_gen(width = 20),scales="free_y") +
+  guides(fill=guide_legend(title="Report type",title.position = "top")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1),
+    strip.background = element_blank(),
+    legend.position = "none"
+  ) +
+  xlab("") +
+  ylab("log10(Number of Reports)")
+g
+ggsave(paste0(img_dir,basename,"montelukasttargetinduced_psychaes_significant_drugevents.png"),width=12,height=4)
+
+```
+
+## What are the dynamic clusters that all and significant ADEs are assigned?
+
+```{r,fig.dim=c(8,7)}
+
+g <- ade_cohort(drugs=ltr_antagonist_atc_drugs,events=psych_meddra_ids) %>% 
+  ggplot(aes(cluster_name,fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  guides(fill=guide_legend(title="Signifiance")) +
+  xlab("") +
+  ylab("Percent of drug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"ltrinduced_psychaes_cluster_percentage.png"),width=7,height=4)
+
+g <- ade_cohort(drugs=montelukast_target_drugs,events=psych_meddra_ids) %>% 
+  ggplot(aes(cluster_name,fill=significance)) +
+  geom_bar(position="fill") +
+  colorspace::scale_fill_discrete_sequential(palette="Blues 2",rev=T) +
+  guides(fill=guide_legend(title="Signifiance")) +
+  xlab("") +
+  ylab("Percent of drug-events") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"montelukasttargetinduced_psychaes_cluster_percentage.png"),width=7,height=4)
+
+```
+
+## Are psych drug risks more often significant at a stage, compared to nonsignificant and not at that stage?
+
+```{r}
+
+totalades <- 
+tbl(
+  db,
+  sql("
+      select distinct ade
+      from ade_nichd
+      ")
+  ) %>% collect() %>% unlist %>% unname
+
+sig_null_dts <- 
+tbl(
+  db,
+  sql("
+      select ade,ade_nichd.nichd as nichd
+      from ade_nichd
+      inner join
+      ade_null
+      on ade_nichd.nichd=ade_null.nichd
+      where gam_score_90mse>null_99
+      ")
+  ) %>% collect() %>% data.table()
+```
+
+```{r}
+
+catades <- 
+  unique(ade_cohort(drugs=montelukast_target_drugs,events=psych_meddra_ids)$ade)
+
+test_dts <- NULL
+for(st in stages){
+  
+  stagesigades <- 
+  sig_null_dts[
+      nichd==st,
+      unique(ade)]
+  
+  a <- intersect(stagesigades,catades) %>% length()
+  b <- setdiff(stagesigades,catades) %>% length()
+  c <- setdiff(catades,stagesigades) %>% length()
+  d <- setdiff(totalades,c(catades,stagesigades)) %>% 
+          length()
+  mat <- matrix(c(a,b,c,d),nrow = 2,byrow = T)
+  test <- fisher.test(mat,conf.level=0.95)
+
+  test_dts <- 
+    bind_rows(
+      test_dts,
+      data.table(
+        nichd = st,
+        a=a,
+        b=b,
+        c=c,
+        d=d,
+        lwr=test$conf.int[1],
+        odds=test$estimate,
+        upr=test$conf.int[2],
+        pvalue=test$p.value
+    )
+  )
+  
+  
+}
+
+```
+
+```{r,fig.dim=c(8,6)}
+
+test_dts
+
+g <- test_dts %>% 
+  ggplot(aes(forcats::fct_relevel(nichd,stages),odds)) +
+  geom_point() +
+  geom_errorbar(aes(ymin=lwr,ymax=upr),width=0.1) +
+  geom_hline(yintercept = 1,color="red",linetype="dashed") +
+  scale_y_continuous(trans="log10") +
+  xlab("") +
+  ylab("Development stage\nodds enrichment") +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"montelukasttargetinduced_psychaes_stage_enrichment.png"),width=7,height=4)
+
+```
+
+
+## Drug-gene summary
+
+```{r,fig.dim=c(7,25)}
+
+
+tmp <- 
+tbl(db,"drug_gene") %>% 
+  filter(
+    atc_concept_id %in% 
+      montelukast_target_drugs
+    ) %>% 
+  select(type,action,gene_symbol,atc_concept_id) %>% 
+  collect() %>% 
+  data.table() %>% 
+  merge(
+    ade_cohort(drugs=montelukast_target_drugs,events=psych_meddra_ids) %>% 
+      .[,.(atc_concept_id,ade,ade_name,
+           significance,cluster_name)] %>% 
+      unique(),
+    by="atc_concept_id",
+    allow.cartesian=T
+  ) %>% 
+  .[,.(type,action,gene_symbol,ade,
+       significance,cluster_name,ade_name,atc_concept_id)] %>% 
+  unique() 
+
+tmp %>%
+  .[significance=="Null model",
+    .(N = length(unique(gene_symbol))),.(type,action)] %>% .[order(N,decreasing = T)]
+
+g <- tmp %>%
+    .[significance=="Null model",
+      .(drug = sapply(str_split(ade_name," and "),function(x){x[1]}),
+        gene_symbol,action)] %>% 
+  unique() %>% 
+  ggplot(aes(gene_symbol,drug,fill=action)) +
+  geom_tile() +
+  xlab("") +
+  ylab("") +
+  guides(fill=guide_legend(title="Drug action")) +
+  theme(
+    axis.text.x = element_text(angle=45,vjust=1,hjust=1)
+  )
+g
+ggsave(paste0(img_dir,basename,"montelukasttargetinduced_psychaes_gene_drug_action_tiles.png"),g,width=12,height=3)
+
+```
+
+# Close database connection
+
+```{r close_connection}
+
+dbDisconnect(db)
+
+```
